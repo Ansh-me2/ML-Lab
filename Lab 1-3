@@ -1,0 +1,169 @@
+Find-S
+import csv
+
+hypo = ['%','%','%','%','%','%']
+
+with open('EnjoySport.csv') as csv_file:
+    readcsv = csv.reader(csv_file, delimiter = ',')
+    data = []
+    print('\nThe given trainging examples are : ')
+    for row in readcsv:
+        print(row)
+        if row[len(row)-1].upper() == "YES":
+            data.append(row)
+
+print('\nThe positive examples are : ')
+for x in data:
+    print(x)
+
+Total_examples = len(data)
+i = j = k = 0
+print('\nThe steps of Find-S algorithm are \n', hypo)
+lst = []
+p = 0
+d = len(data[p]) - 1
+for j in range(d):
+    lst.append(data[i][j])
+hypo = lst
+
+for i in range(Total_examples):
+    for k in range(d):
+        if(hypo[k] != data[i][k]):
+            hypo[k] = '?'
+            k = k+1
+        else:
+            hypo[k]
+    print(hypo)
+
+print('\nThe maximally specific Find-s hypothesis for the given training examples is')
+print(lst)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+Candidiate Elimination algorithm
+
+import numpy as np
+import pandas as pd
+
+data = pd.DataFrame(data = pd.read_csv('EnjoySport.csv'))
+print(data)
+
+concept = np.array(data.iloc[:,0:-1])
+print("Concept : ", concept)
+print("---------------------------------")
+
+target = np.array(data.iloc[:,-1])
+print("Target : ", target)
+print("---------------------------------")
+
+def learn(concept, target):
+    specific_h = concept[0].copy()
+    print("Initialization of specific_h and general_h")
+    print(specific_h)
+    print("----------------------------------")
+    general_h = [["?" for i in range(len(specific_h))] for i in range(len(specific_h))]
+    print("----------------------------------")
+
+    for i,h in enumerate(concept):
+        if target[i] == "Yes":
+            for x in range(len(specific_h)):
+                if(h[x] != specific_h[x]):
+                    specific_h[x] = '?'
+                    general_h[x][x] = '?'
+        if target[i] == "No":
+            for x in range(len(specific_h)):
+                if(h[x] != specific_h[x]):
+                    general_h[x][x] = specific_h[x]
+                else:
+                    general_h[x][x] = '?'
+        print("Steps in Candidate Elimination algorithm ", i+1)
+        print(specific_h)
+        print(general_h)
+
+    indices = [i for i,val in enumerate(general_h) if val == ['?','?','?','?','?','?']]
+    print("indices --", indices)
+    for i in indices:
+        general_h.remove(['?','?','?','?','?','?'])
+    
+    return specific_h,general_h
+
+s_final,g_final = learn(concept,target)
+print("Final Specific", s_final)
+print("----------------------------------")
+print("Final General", g_final)
+print("----------------------------------")
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+ID3
+
+import pandas as pd
+from pandas import DataFrame
+
+df_tennis=pd.read_csv("PlayTennis.csv")
+print("\nGiven play tennis dataset:\n\n",df_tennis)
+
+def entropy(probs):
+    import math
+    return sum([-prob*math.log(prob,2) for prob in probs])
+
+
+def entropy_of_list(a_list):
+    from collections import Counter
+    cnt = Counter(x for x in a_list)
+    num_instances = len(a_list)
+    probs=[x/num_instances for x in cnt.values()]
+    return entropy(probs)
+
+
+total_entropy = entropy_of_list(df_tennis['PlayTennis'])
+print("\nTotal entropy of play Tennis data set:",total_entropy)
+
+
+def information_gain(df,split_attribute_name,target_attribute_name,trace=0):
+    df_split=df.groupby(split_attribute_name)
+    for name,group in df_split:
+        nobs=len(df.index)
+    df_agg_ent=df_split.agg({target_attribute_name:[entropy_of_list,lambda x:len(x)/nobs]})[target_attribute_name]
+    df_agg_ent.columns=['Entropy','Propobservations']
+    if trace:
+        print(df_agg_ent)
+    new_entropy=sum(df_agg_ent['Entropy']*df_agg_ent['Propobservations'])
+    old_entropy=entropy_of_list(df[target_attribute_name])
+    return old_entropy-new_entropy
+
+
+print('Info_gain for Outlook is:'+str(information_gain(df_tennis,'Outlook','PlayTennis')),"\n")
+print('\n Info_gain for humidity is:'+str(information_gain(df_tennis,'Humidity','PlayTennis')),"\n")
+print('\nInfo_gain for wind is:'+str(information_gain(df_tennis,'Wind','PlayTennis')),"\n")
+print('\n Info-gain for Temperature is:'+str(information_gain(df_tennis,'Temperature','PlayTennis')),"\n")
+
+
+def id3(df,target_attribute_name,attribute_names,default_class=None):
+    from collections import Counter
+    cnt=Counter(x for x in df[target_attribute_name])
+    if len(cnt)==1:
+        return next(iter(cnt))
+    elif df.empty or(not attribute_names):
+        return default_class
+    else:
+        default_class=max(cnt.keys())
+        gainz=[information_gain(df,attr,target_attribute_name)for attr in attribute_names]
+        index_of_max=gainz.index(max(gainz))
+        best_attr=attribute_names[index_of_max]
+        tree={best_attr:{}}
+        remaining_attribute_names=[i for i in attribute_names if i!=best_attr]
+        for attr_val,data_subset in df.groupby(best_attr):
+            subtree=id3(data_subset,target_attribute_name,remaining_attribute_names,default_class)
+            tree[best_attr][attr_val]=subtree
+        return tree
+
+
+attribute_names=list(df_tennis.columns)
+attribute_names.remove('PlayTennis')
+
+
+from pprint import pprint
+tree=id3(df_tennis,'PlayTennis',attribute_names)
+print("\n\nThe resultant Decision Tree is:\n")
+pprint(tree)
